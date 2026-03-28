@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls d:/Work/anton-read-2/*.kt)",
+      "Bash(\"c:/SDK/Android/platform-tools/adb.exe\" devices:*)",
+      "Bash(gradle assembleDebug)",
+      "Bash(\"c:/SDK/Android/platform-tools/adb.exe\" shell:*)"
+    ]
+  }
+}
