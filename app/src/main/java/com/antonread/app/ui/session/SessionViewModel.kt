@@ -7,6 +7,7 @@ import com.antonread.app.data.db.ItemEntity
 import com.antonread.app.data.model.ItemType
 import com.antonread.app.data.model.Mode
 import com.antonread.app.data.repository.LearningRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,9 +29,9 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
 
     private var pool: ArrayDeque<ItemEntity> = ArrayDeque()
-    // syllables pending for the current word (SYLLABLES_AND_WORDS mode)
     private var wordSyllableQueue: ArrayDeque<ItemEntity> = ArrayDeque()
     private var currentWordItem: ItemEntity? = null
+    private var loadJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -41,7 +42,8 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
     }
 
     fun setMode(mode: Mode) {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             wordSyllableQueue.clear()
             currentWordItem = null
             loadPool(mode)
@@ -91,7 +93,9 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
 
     private suspend fun advance() {
         val mode = _uiState.value.mode
-        if (pool.isEmpty()) loadPool(mode)
+        if (pool.isEmpty()) {
+            pool = ArrayDeque(repo.getPool(mode))
+        }
 
         val next = pool.removeFirstOrNull()
         if (next == null) {
@@ -130,8 +134,7 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
     }
 
     private suspend fun loadPool(mode: Mode) {
-        val items = repo.getPool(mode).toMutableList()
-        pool = ArrayDeque(items)
+        pool = ArrayDeque(repo.getPool(mode))
         _uiState.value = _uiState.value.copy(mode = mode, isLoading = false)
         advance()
     }

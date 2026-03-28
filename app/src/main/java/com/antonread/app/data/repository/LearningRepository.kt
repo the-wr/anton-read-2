@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 
 private const val SESSION_GAP_MILLIS = 3 * 60 * 60 * 1000L // 3 hours
 private const val SPOT_CHECK_RATIO = 0.15
+private const val LETTER_WINDOW = 3 // max non-known letters shown at once
 
 class LearningRepository(private val db: AppDatabase) {
 
@@ -118,6 +119,32 @@ class LearningRepository(private val db: AppDatabase) {
 
     // ── Item pool for a session ────────────────────────────────────────────
 
+    /**
+     * Returns letters eligible for the current session.
+     * Letters are introduced in frequency order, max [LETTER_WINDOW] non-known letters at once.
+     * All already-known (and flagged) letters are included for spot-checks.
+     * Letters beyond the window are hidden until earlier ones are mastered.
+     */
+    private fun lettersInScope(all: List<ItemEntity>): List<ItemEntity> {
+        val byContent = all.filter { it.type == ItemType.LETTER }.associateBy { it.content }
+        var activeCount = 0
+        val inScope = mutableListOf<ItemEntity>()
+        for (letter in Letters.ordered) {
+            val item = byContent[letter] ?: continue
+            if (item.isEffectivelyKnown()) {
+                inScope.add(item) // always include known letters (for spot-checks)
+            } else {
+                if (activeCount < LETTER_WINDOW) {
+                    inScope.add(item)
+                    activeCount++
+                } else {
+                    break // everything after the window is hidden
+                }
+            }
+        }
+        return inScope
+    }
+
     suspend fun getPool(mode: Mode): List<ItemEntity> {
         val all = db.itemDao().getAll()
         val knownLetterSet = all.filter { it.type == ItemType.LETTER && it.isEffectivelyKnown() }
@@ -127,7 +154,7 @@ class LearningRepository(private val db: AppDatabase) {
             .map { it.content }.toSet()
 
         val candidates: List<ItemEntity> = when (mode) {
-            Mode.LETTERS -> all.filter { it.type == ItemType.LETTER }
+            Mode.LETTERS -> lettersInScope(all)
             Mode.SYLLABLES -> all.filter { it.type == ItemType.SYLLABLE
                     && syllableUnlocked(it.content, knownLetterSet) }
             Mode.SYLLABLES_AND_WORDS -> all.filter {
