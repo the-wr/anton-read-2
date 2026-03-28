@@ -17,6 +17,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
 import com.antonread.app.data.model.Mode
 import com.antonread.app.ui.theme.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.systemBars
 
 private val modeLabels = mapOf(
     Mode.LETTERS              to "Буквы",
@@ -32,6 +35,7 @@ fun SessionScreen(
     onNavigateToStats: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val systemBars = WindowInsets.systemBars.asPaddingValues()
 
     Column(
         modifier = Modifier
@@ -40,6 +44,7 @@ fun SessionScreen(
     ) {
         // ── Top bar ──────────────────────────────────────────────────────
         TopBar(
+            topPadding = systemBars.calculateTopPadding(),
             currentMode = state.mode,
             unlockedCounts = state.unlockedCounts,
             onModeSelected = viewModel::setMode,
@@ -74,7 +79,12 @@ fun SessionScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(0.2f)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(
+                    start = 16.dp + systemBars.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+                    end = 16.dp + systemBars.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+                    top = 8.dp,
+                    bottom = 8.dp + systemBars.calculateBottomPadding()
+                ),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             AnswerButton(
@@ -97,6 +107,7 @@ fun SessionScreen(
 
 @Composable
 private fun TopBar(
+    topPadding: androidx.compose.ui.unit.Dp,
     currentMode: Mode,
     unlockedCounts: Map<Mode, Int>,
     onModeSelected: (Mode) -> Unit,
@@ -107,7 +118,7 @@ private fun TopBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(SurfaceColor)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp + topPadding, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Mode tabs
