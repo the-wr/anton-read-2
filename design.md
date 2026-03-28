@@ -56,7 +56,9 @@ If a mode has no new or pending items, it fills entirely with known items for ma
 Letters
   └─ unlock Syllables (CV pairs, hard and soft variants)
        └─ unlock Easy Words (all syllables known)
-            └─ Hard Words (separate pool, tracked independently)
+            │    shown in: "Syllables + Easy Words" (with syllable phase)
+            │              "Easy Words" (word directly, no syllable phase)
+            └─ unlock Hard Words (all letters in word known)
 ```
 
 ### Letters
@@ -91,7 +93,7 @@ Approximate total: ~150–180 usable CV pairs.
 
 - Common Russian words from top-1000 frequency lists
 - No syllable-structure restriction
-- Unlock condition: available regardless of syllable knowledge (separate pool)
+- **Unlock condition**: all letters contained in the word are `known`
 - Curated for age-appropriateness; nouns, verbs, adjectives, names; no slang
 
 ---
@@ -104,14 +106,17 @@ The parent selects a mode at the start of each session and can switch modes at a
 |---|---|---|
 | **Letters** | Letters only, in frequency order | — |
 | **Syllables** | CV syllable pairs | Both letters `known` |
-| **Syllables + Easy Words** | Syllables and easy words (word flow below) | All syllables in word `known` |
-| **Hard Words** | Words from frequency list | Always available |
+| **Syllables + Easy Words** | Syllables interleaved with easy words (syllable phase first) | All syllables in word `known` |
+| **Easy Words** | Easy words only, no syllable phase — word shown directly | All syllables in word `known` |
+| **Hard Words** | Words from frequency list | All letters in word `known` |
 
 Each mode tab/button displays the **count of currently unlocked items** (e.g., "Syllables 24").
 
 ---
 
-## Word Mode Flow (Syllables + Easy Words)
+## Word Mode Flows
+
+### Syllables + Easy Words mode
 
 When a word is selected for display:
 
@@ -121,6 +126,10 @@ When a word is selected for display:
 2. **Word phase** (only if all syllables were correct): the full word is shown with visible syllable boundaries (e.g., **МА·ШИ·НА**), judged with Correct / Wrong buttons
    - The word item itself follows the same state machine as any other item
 
+### Easy Words mode
+
+Word is shown directly with syllable boundaries visible (no syllable phase). Judged with Correct / Wrong. Same state machine applies to the word item.
+
 ---
 
 ## Screen Layouts
@@ -129,21 +138,24 @@ When a word is selected for display:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  [Letters 8]  [Syllables 24]  [Syl+Words 3]  [Hard Words 0]    │  ← mode tabs
+│  [Letters 8] [Syllables 24] [Syl+Words 3] [Words 5] [Hard 0]  [Stats] [Dbg] │
 │                                                                 │
 │                                                                 │
-│                           М А                                  │  ← large Cyrillic text
+│                                                                 │
+│                           М А                                  │  ← enormous Cyrillic text
 │                                                                 │
 │                                                                 │
-│       [✓  Correct]                    [✗  Wrong]               │  ← large buttons
-│                                              [Stats]  [Debug]  │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤  ← 80% / 20% split
+│       [✓  Correct]                    [✗  Wrong]               │  ← lower 20%
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 - **Correct** is on the **left**, **Wrong** on the **right**
-- Text is large enough for a 6-year-old to read from ~50cm
-- Buttons occupy the bottom half, large tap targets
-- Stats and Debug are small, tucked into the bottom-right corner
+- Upper 80% is pure content space — font can be as large as needed (target: fills ~50% of height for single syllables/letters)
+- Lower 20% contains only the two full-width buttons, split evenly
+- **Stats** and **Debug** (force new session) are in the **top-right corner**, small
+- Mode tabs span the top bar alongside Stats/Debug
 
 ### Statistics Screen
 
@@ -152,18 +164,19 @@ When a word is selected for display:
 │  ← Back                        Statistics                       │
 │                                                                 │
 │  Letters      ████████░░░░░░░░░░░░  8 / 33 known               │
+│               о  е  а  и  н  т  с  р  [░м  ░д  ░п  ░у ...]    │  ← known=bold, unknown=dim
 │                                                                 │
 │  Syllables    ████░░░░░░░░░░░░░░░░  24 / 178 unlocked           │
 │               ██░░░░░░░░░░░░░░░░░░  6 / 24 known               │
-│                                                                 │
-│  Easy Words   ██░░░░░░░░░░░░░░░░░░  3 / 12 unlocked            │
-│               ░░░░░░░░░░░░░░░░░░░░  0 / 3 known                │
-│                                                                 │
-│  Hard Words   ░░░░░░░░░░░░░░░░░░░░  0 known                    │
+│               на  ро  та  са  ве  ло  [░ма  ░со  ░ре ...]      │  ← known first, then unlocked
 │                                                                 │
 │  Sessions     12 total                                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+- Known items are shown **bold/full opacity**, unlocked-but-not-known are **dimmed**
+- Items wrap across multiple lines if needed
+- Scrollable screen
 
 ---
 
@@ -201,17 +214,19 @@ Computed at runtime from item states — no need to store separately.
 
 ### Word lists
 Generated and curated; tagged by type and syllable structure:
-- **Easy words** (~100): CV-dominant, ≤3 syllables, common nouns/verbs/adjectives/names
-- **Hard words** (~500): top Russian frequency list, age-appropriate, all word types
+- **Easy words** (~300): CV-dominant, ≤3 syllables, common nouns/verbs/adjectives/names
+- **Hard words** (~1500): top Russian frequency list, age-appropriate, all word types
 
 ---
 
 ## Tech Stack
 
-- **Framework**: Flutter (single codebase, excellent tablet UI, Dart)
-- **Local storage**: SQLite via `sqflite` package
+- **Language**: Kotlin
+- **UI**: Jetpack Compose
+- **Local storage**: Room (SQLite ORM)
+- **Architecture**: MVVM with ViewModel + StateFlow
 - **No backend, no audio, no network required**
-- **Target**: Android tablet, landscape orientation, API 21+
+- **Target**: Android tablet, landscape orientation, API 24+
 
 ---
 
