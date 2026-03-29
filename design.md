@@ -54,47 +54,33 @@ If a mode has no new or pending items, it fills entirely with known items for ma
 
 ```
 Letters
-  └─ unlock Syllables (CV pairs, hard and soft variants)
-       └─ unlock Easy Words (all syllables known)
-            │    shown in: "Syllables + Easy Words" (with syllable phase)
-            │              "Easy Words" (word directly, no syllable phase)
-            └─ unlock Hard Words (all letters in word known)
+  └─ unlock Easy Words (all letters in word known)
+  └─ unlock Hard Words (all letters in word known)
 ```
 
 ### Letters
 
-33 letters introduced in **frequency order** (optimizes how quickly syllables unlock):
+33 letters introduced in **frequency order**:
 
 ```
 о е а и н т с р в л к м д п у я ы з б г ь ч й х ж ё ш ю ц щ э ф ъ
 ```
 
-> **Note:** `ь` (soft sign) and `ъ` (hard sign) are not syllable-forming. They are taught as letters but do not participate in syllable unlocking directly — their role is explained contextually when encountered in words.
-
-### Syllables
-
-- Format: **consonant + vowel** (CV), hard and soft variants are separate items
-  - Hard: ма, мо, му, мы, мэ
-  - Soft: мя, мё, мю, ми, ме
-- **Unlock condition**: both the consonant letter and the vowel letter must be `known`
-- Standalone vowels (а, о, у, и, э, ы, я, ё, ю, е) are considered known when the letter is known; they are not separate syllable items
-- Invalid combinations in Russian orthography (жы, шы, etc.) are excluded
-
-Approximate total: ~150–180 usable CV pairs.
+> **Note:** `ь` and `ъ` are taught as letters but are transparent in unlock conditions — a word containing them only requires the other letters to be `known`.
 
 ### Easy Words
 
-- Structure: words composed **entirely of known syllables**, max ~3 syllables, CV-dominant structure (e.g., ма-ши-на, со-ба-ка, ре-бя-та)
-- **Unlock condition**: all syllables in the word are `known`
-- Curated list of ~100 words: common nouns, verbs, adjectives, names; no slang
-- Syllable boundaries are always visible: **МА·ШИ·НА**
+- **Every syllable is strictly CV** (consonant + vowel, no clusters, no ь/ъ, no standalone vowels) — ≤3 syllables (e.g., ма-ши-на, со-ба-ка, ре-бя-та)
+- **Unlock condition**: all letters in the word are `known`
+- Curated list of ~300 words: nouns, verbs, adjectives, names; no slang
+- Always displayed with syllable boundaries visible: **МА·ШИ·НА**
+- Preceded by a **syllable teaching phase** (see Word Mode Flow)
 
 ### Hard Words
 
-- Common Russian words from top-1000 frequency lists
-- No syllable-structure restriction
-- **Unlock condition**: all letters contained in the word are `known`
-- Curated for age-appropriateness; nouns, verbs, adjectives, names; no slang
+- Common words from top Russian frequency lists, no syllable-structure restriction
+- **Unlock condition**: all letters in the word are `known` (ь/ъ exempt)
+- Curated list of ~1500 words: age-appropriate, all word types, no slang
 
 ---
 
@@ -105,30 +91,24 @@ The parent selects a mode at the start of each session and can switch modes at a
 | Mode | Content Shown | Unlock Requirement |
 |---|---|---|
 | **Letters** | Letters only, in frequency order | — |
-| **Syllables** | CV syllable pairs | Both letters `known` |
-| **Syllables + Easy Words** | Syllables interleaved with easy words (syllable phase first) | All syllables in word `known` |
-| **Easy Words** | Easy words only, no syllable phase — word shown directly | All syllables in word `known` |
-| **Hard Words** | Words from frequency list | All letters in word `known` |
+| **Easy Words** | Easy words with syllable teaching phase | All letters in word `known` |
+| **Hard Words** | Words from top frequency list | All letters in word `known` |
 
-Each mode tab/button displays the **count of currently unlocked items** (e.g., "Syllables 24").
+Each mode tab/button displays the **count of currently unlocked items**.
 
 ---
 
-## Word Mode Flows
+## Easy Word Flow
 
-### Syllables + Easy Words mode
+When an easy word is selected:
 
-When a word is selected for display:
+1. **Syllable teaching phase**: each CV syllable of the word is shown individually, in random order
+   - Correct → no state change (syllables are not tracked items)
+   - Wrong → the two **letters** of that syllable (always exactly consonant + vowel) are both marked `FLAGGED`; word is removed from the queue for this session; skip to next item
+2. **Word phase** (only if all syllables were correct): full word shown with visible syllable boundaries (e.g., **МА·ШИ·НА**), judged with Correct / Wrong
+   - The word item follows the standard state machine
 
-1. **Syllable phase**: each syllable of the word is shown individually, in random order, judged with Correct / Wrong buttons
-   - Correct → syllable progresses per general learning rules
-   - Wrong → word is immediately **locked** for this session; the syllable's state updates per general rules (no regression, no progress); word does not advance to display phase
-2. **Word phase** (only if all syllables were correct): the full word is shown with visible syllable boundaries (e.g., **МА·ШИ·НА**), judged with Correct / Wrong buttons
-   - The word item itself follows the same state machine as any other item
-
-### Easy Words mode
-
-Word is shown directly with syllable boundaries visible (no syllable phase). Judged with Correct / Wrong. Same state machine applies to the word item.
+Hard words are shown directly — no syllable phase.
 
 ---
 
@@ -138,8 +118,7 @@ Word is shown directly with syllable boundaries visible (no syllable phase). Jud
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  [Letters 8] [Syllables 24] [Syl+Words 3] [Words 5] [Hard 0]  [Stats] [Dbg] │
-│                                                                 │
+│  [Letters 8] [Easy Words 5] [Hard Words 0]       [Stats] [Dbg] │
 │                                                                 │
 │                                                                 │
 │                           М А                                  │  ← enormous Cyrillic text
@@ -166,16 +145,12 @@ Word is shown directly with syllable boundaries visible (no syllable phase). Jud
 │  Letters      ████████░░░░░░░░░░░░  8 / 33 known               │
 │               о  е  а  и  н  т  с  р  [░м  ░д  ░п  ░у ...]    │  ← known=bold, unknown=dim
 │                                                                 │
-│  Syllables    ████░░░░░░░░░░░░░░░░  24 / 178 unlocked           │
-│               ██░░░░░░░░░░░░░░░░░░  6 / 24 known               │
-│               на  ро  та  са  ве  ло  [░ма  ░со  ░ре ...]      │  ← known first, then unlocked
-│                                                                 │
 │  Sessions     12 total                                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- Known items are shown **bold/full opacity**, unlocked-but-not-known are **dimmed**
-- Items wrap across multiple lines if needed
+- Known letters shown **bold/full opacity**, not-yet-known shown **dimmed**
+- Letters wrap across multiple lines if needed
 - Scrollable screen
 
 ---
@@ -185,8 +160,8 @@ Word is shown directly with syllable boundaries visible (no syllable phase). Jud
 ### `items` table
 | field | type | notes |
 |---|---|---|
-| id | string | e.g., `letter:м`, `syllable:ма`, `word:машина` |
-| type | enum | `letter`, `syllable`, `word_easy`, `word_hard` |
+| id | string | e.g., `letter:м`, `word_easy:машина`, `word_hard:машина` |
+| type | enum | `letter`, `word_easy`, `word_hard` |
 | content | string | display text |
 | state | enum | `new`, `in_session_1`, `session_learned`, `retention_pending`, `known`, `flagged` |
 | correct_total | int | lifetime correct count |
