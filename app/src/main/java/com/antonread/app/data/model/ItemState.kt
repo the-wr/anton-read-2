@@ -11,15 +11,12 @@ enum class ItemState {
 
 enum class ItemType {
     LETTER,
-    SYLLABLE,
     WORD_EASY,
     WORD_HARD
 }
 
 enum class Mode {
     LETTERS,
-    SYLLABLES,
-    SYLLABLES_AND_WORDS,
     EASY_WORDS,
     HARD_WORDS
 }

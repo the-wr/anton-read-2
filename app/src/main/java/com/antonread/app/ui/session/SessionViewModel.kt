@@ -16,11 +16,17 @@ import kotlinx.coroutines.launch
 data class SessionUiState(
     val mode: Mode = Mode.LETTERS,
     val currentItem: ItemEntity? = null,
-    // For SYLLABLES_AND_WORDS mode: syllable sub-items before the word itself
-    val pendingSyllables: List<ItemEntity> = emptyList(),
-    val isShowingWordPhase: Boolean = false,
+    // Non-null during the syllable teaching phase before an easy word
+    val syllablePhase: SyllablePhase? = null,
     val unlockedCounts: Map<Mode, Int> = emptyMap(),
     val isLoading: Boolean = true
+)
+
+/** Teaching phase shown before an easy word. [remaining] is shuffled syllables yet to show. */
+data class SyllablePhase(
+    val wordItem: ItemEntity,
+    val currentSyllable: String,
+    val remaining: List<String> // excludes currentSyllable
 )
 
 class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
@@ -29,8 +35,6 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
 
     private var pool: ArrayDeque<ItemEntity> = ArrayDeque()
-    private var wordSyllableQueue: ArrayDeque<ItemEntity> = ArrayDeque()
-    private var currentWordItem: ItemEntity? = null
     private var loadJob: Job? = null
 
     init {
@@ -44,8 +48,6 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
     fun setMode(mode: Mode) {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            wordSyllableQueue.clear()
-            currentWordItem = null
             loadPool(mode)
         }
     }
@@ -56,36 +58,43 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
     private fun handleAnswer(correct: Boolean) {
         viewModelScope.launch {
             val state = _uiState.value
-            val item = state.currentItem ?: return@launch
+            val phase = state.syllablePhase
 
-            repo.recordAnswer(item.id, correct)
-
-            when {
-                // In syllable phase of a word
-                state.pendingSyllables.isNotEmpty() -> {
-                    if (correct) {
-                        val remaining = state.pendingSyllables.drop(1)
-                        if (remaining.isEmpty()) {
-                            // All syllables passed — show the word itself
-                            _uiState.value = state.copy(
-                                currentItem = currentWordItem,
-                                pendingSyllables = emptyList(),
-                                isShowingWordPhase = true
-                            )
-                        } else {
-                            _uiState.value = state.copy(
-                                currentItem = remaining.first(),
-                                pendingSyllables = remaining
-                            )
-                        }
+            if (phase != null) {
+                // ── Syllable teaching phase ──────────────────────────────
+                if (correct) {
+                    if (phase.remaining.isEmpty()) {
+                        // All syllables passed — show the word
+                        _uiState.value = state.copy(
+                            currentItem = phase.wordItem,
+                            syllablePhase = null
+                        )
                     } else {
-                        // Syllable wrong → skip word, move to next pool item
-                        currentWordItem = null
-                        wordSyllableQueue.clear()
-                        advance()
+                        _uiState.value = state.copy(
+                            syllablePhase = phase.copy(
+                                currentSyllable = phase.remaining.first(),
+                                remaining = phase.remaining.drop(1)
+                            )
+                        )
                     }
+                } else {
+                    // Flag the two letters of the wrong syllable, skip word
+                    repo.flagSyllableLetters(phase.currentSyllable)
+                    _uiState.value = state.copy(syllablePhase = null)
+                    advance()
                 }
-                else -> advance()
+            } else {
+                // ── Normal item (letter or word) ─────────────────────────
+                val item = state.currentItem ?: return@launch
+                val wasNew = item.state == com.antonread.app.data.model.ItemState.NEW
+                repo.recordAnswer(item.id, correct)
+                // A correct answer on a NEW letter moves it to IN_SESSION_1 —
+                // it needs one more correct answer, so re-queue it at the end of the pool.
+                if (correct && wasNew && state.mode == Mode.LETTERS) {
+                    val updated = repo.itemDao.getById(item.id)
+                    if (updated != null) pool.addLast(updated)
+                }
+                advance()
             }
             refreshUnlockedCounts()
         }
@@ -93,41 +102,33 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
 
     private suspend fun advance() {
         val mode = _uiState.value.mode
-        if (pool.isEmpty()) {
+        // Only refill for word modes — letter mode stops when the session pool is exhausted
+        if (pool.isEmpty() && mode != Mode.LETTERS) {
             pool = ArrayDeque(repo.getPool(mode))
         }
 
         val next = pool.removeFirstOrNull()
         if (next == null) {
-            _uiState.value = _uiState.value.copy(currentItem = null, isLoading = false)
+            _uiState.value = _uiState.value.copy(currentItem = null, syllablePhase = null, isLoading = false)
             return
         }
 
-        if (mode == Mode.SYLLABLES_AND_WORDS && next.type == ItemType.WORD_EASY) {
-            // Decompose word into syllables for the syllable phase
-            val syllableContents = next.content.split("·")
-            val allSyllables = repo.itemDao.getAll()
-                .filter { it.type == ItemType.SYLLABLE }
-                .associateBy { it.content }
-            val syllableItems = syllableContents
-                .mapNotNull { allSyllables[it] }
-                .shuffled()
-            if (syllableItems.isEmpty()) {
-                advance(); return
-            }
-            currentWordItem = next
-            wordSyllableQueue = ArrayDeque(syllableItems)
+        if (mode == Mode.EASY_WORDS) {
+            // Start syllable teaching phase: content is "МА·ШИ·НА"
+            val syllables = next.content.split("·").shuffled()
             _uiState.value = _uiState.value.copy(
-                currentItem = syllableItems.first(),
-                pendingSyllables = syllableItems,
-                isShowingWordPhase = false
+                currentItem = null,
+                syllablePhase = SyllablePhase(
+                    wordItem = next,
+                    currentSyllable = syllables.first(),
+                    remaining = syllables.drop(1)
+                ),
+                isLoading = false
             )
         } else {
-            currentWordItem = null
             _uiState.value = _uiState.value.copy(
                 currentItem = next,
-                pendingSyllables = emptyList(),
-                isShowingWordPhase = false,
+                syllablePhase = null,
                 isLoading = false
             )
         }
@@ -135,7 +136,7 @@ class SessionViewModel(private val repo: LearningRepository) : ViewModel() {
 
     private suspend fun loadPool(mode: Mode) {
         pool = ArrayDeque(repo.getPool(mode))
-        _uiState.value = _uiState.value.copy(mode = mode, isLoading = false)
+        _uiState.value = _uiState.value.copy(mode = mode, syllablePhase = null, isLoading = false)
         advance()
     }
 

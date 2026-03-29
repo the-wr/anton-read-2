@@ -65,18 +65,6 @@ fun StatsScreen(repo: LearningRepository, onBack: () -> Unit) {
                 ItemChips(known = knownLetters, unknown = unknownLetters)
             }
 
-            // ── Syllables ─────────────────────────────────────────────────
-            val knownSyllables = s.unlockedSyllables.filter { it.isKnown() }
-            val pendingSyllables = s.unlockedSyllables.filter { !it.isKnown() }
-            StatSection(
-                title = "Слоги",
-                knownCount = knownSyllables.size,
-                totalCount = s.unlockedSyllables.size,
-                subtitle = "разблокировано ${s.unlockedSyllables.size} из ${s.syllables.size}"
-            ) {
-                ItemChips(known = knownSyllables, unknown = pendingSyllables)
-            }
-
             // ── Sessions ──────────────────────────────────────────────────
             Text(
                 text = "Занятий: ${s.sessionCount}",
@@ -92,7 +80,6 @@ private fun StatSection(
     title: String,
     knownCount: Int,
     totalCount: Int,
-    subtitle: String? = null,
     content: @Composable () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -100,9 +87,6 @@ private fun StatSection(
             Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = PrimaryColor)
             Spacer(Modifier.width(12.dp))
             Text("$knownCount / $totalCount знает", fontSize = 15.sp, color = PrimaryColor.copy(alpha = 0.6f))
-        }
-        if (subtitle != null) {
-            Text(subtitle, fontSize = 13.sp, color = DimColor)
         }
         LinearProgressIndicator(
             progress = { if (totalCount > 0) knownCount.toFloat() / totalCount else 0f },

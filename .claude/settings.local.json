@@ -5,7 +5,8 @@
       "Bash(\"c:/SDK/Android/platform-tools/adb.exe\" devices:*)",
       "Bash(gradle assembleDebug)",
       "Bash(\"c:/SDK/Android/platform-tools/adb.exe\" shell:*)",
-      "Bash(\"c:/SDK/Android/platform-tools/adb.exe\" install:*)"
+      "Bash(\"c:/SDK/Android/platform-tools/adb.exe\" install:*)",
+      "Bash(\"c:/SDK/Android/platform-tools/adb.exe\" uninstall:*)"
     ]
   }
 }

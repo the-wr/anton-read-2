@@ -14,15 +14,11 @@ object Seeder {
         for (letter in Letters.ordered) {
             add(ItemEntity(id = "letter:$letter", type = ItemType.LETTER, content = letter))
         }
-        // Syllables
-        for (syllable in Syllables.all) {
-            add(ItemEntity(id = "syllable:$syllable", type = ItemType.SYLLABLE, content = syllable))
-        }
-        // Easy words
+        // Easy words — content stored as syllable string "МА·ШИ·НА"
         for (word in EasyWords.list) {
             add(ItemEntity(id = "word_easy:${word.word}", type = ItemType.WORD_EASY, content = word.syllables))
         }
-        // Hard words
+        // Hard words — content stored as plain word
         for (word in HardWords.list) {
             add(ItemEntity(id = "word_hard:$word", type = ItemType.WORD_HARD, content = word))
         }
