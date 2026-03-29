@@ -127,19 +127,21 @@ class LearningRepository(private val db: AppDatabase) {
      */
     private fun lettersInScope(all: List<ItemEntity>): List<ItemEntity> {
         val byContent = all.filter { it.type == ItemType.LETTER }.associateBy { it.content }
-        var activeCount = 0
+        var newCount = 0
         val inScope = mutableListOf<ItemEntity>()
         for (letter in Letters.ordered) {
             val item = byContent[letter] ?: continue
-            if (item.isEffectivelyKnown()) {
-                inScope.add(item) // always include known letters (for spot-checks)
-            } else {
-                if (activeCount < LETTER_WINDOW) {
-                    inScope.add(item)
-                    activeCount++
-                } else {
-                    break // everything after the window is hidden
-                }
+            when {
+                // SESSION_LEARNED = done this session; slide the window past them transparently
+                item.state == ItemState.SESSION_LEARNED -> continue
+                // Known letters within the frontier stay for spot-checks
+                item.isEffectivelyKnown() -> inScope.add(item)
+                // RETENTION_PENDING always surfaces regardless of window
+                item.state == ItemState.RETENTION_PENDING -> inScope.add(item)
+                // Fill up to LETTER_WINDOW active slots
+                newCount < LETTER_WINDOW -> { inScope.add(item); newCount++ }
+                // Window full — stop looking
+                else -> break
             }
         }
         return inScope
@@ -153,8 +155,18 @@ class LearningRepository(private val db: AppDatabase) {
                 && syllableUnlocked(it.content, knownLetterSet) }
             .map { it.content }.toSet()
 
+        // LETTERS mode: stop once session goals are met — no cycling through known letters
+        if (mode == Mode.LETTERS) {
+            val scoped  = lettersInScope(all)
+            val pending = scoped.filter { it.state == ItemState.RETENTION_PENDING }
+            val active  = scoped.filter { it.state == ItemState.NEW || it.state == ItemState.IN_SESSION_1 }
+            val flagged = scoped.filter { it.state == ItemState.FLAGGED }
+            if (pending.isEmpty() && active.isEmpty() && flagged.isEmpty()) return emptyList()
+            return (pending.shuffled() + active.shuffled() + flagged.shuffled()).distinctBy { it.id }
+        }
+
         val candidates: List<ItemEntity> = when (mode) {
-            Mode.LETTERS -> lettersInScope(all)
+            Mode.LETTERS -> error("handled above")
             Mode.SYLLABLES -> all.filter { it.type == ItemType.SYLLABLE
                     && syllableUnlocked(it.content, knownLetterSet) }
             Mode.SYLLABLES_AND_WORDS -> all.filter {
