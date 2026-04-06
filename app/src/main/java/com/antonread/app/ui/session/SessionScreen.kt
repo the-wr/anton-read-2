@@ -165,11 +165,12 @@ private fun ItemDisplay(text: String) {
             .padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center
     ) {
-        val charCount = text.replace("·", "").length.coerceAtLeast(1)
-        val maxWidthSp = with(androidx.compose.ui.platform.LocalDensity.current) {
-            maxWidth.toPx() / fontScale
-        }
-        val computed = (maxWidthSp * 0.80f / (charCount * 0.55f)).coerceIn(48f, 220f)
+        val letterCount = text.count { it != '·' }
+        val dotCount    = text.count { it == '·' }
+        val effectiveCount = (letterCount + dotCount * 0.5f).coerceAtLeast(1f)
+        val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+        val maxWidthDp = maxWidth.value / fontScale   // sp ≈ dp when fontScale=1
+        val computed = (maxWidthDp * 0.80f / (effectiveCount * 0.58f)).coerceIn(48f, 220f)
         val annotated = buildAnnotatedString {
             for (ch in text) {
                 if (ch == '·') {
